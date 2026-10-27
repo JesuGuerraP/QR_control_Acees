@@ -51,8 +51,8 @@ export async function deleteGraduando(id: string) {
 }
 
 export type ScanResult =
-  | { kind: "ok"; ticket: Ticket; graduando?: Graduando }
-  | { kind: "used"; ticket: Ticket; graduando?: Graduando; usedAt: number }
+  | { kind: "ok"; ticket: Ticket; graduando?: Graduando | undefined }
+  | { kind: "used"; ticket: Ticket; graduando?: Graduando | undefined; usedAt: number }
   | { kind: "invalid"; reason: string };
 
 /** Validate a scanned/typed code locally and mark it used exactly once. */
