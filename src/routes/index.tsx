@@ -8,14 +8,15 @@ import { ScannerTab } from "@/components/ScannerTab";
 import { ReportesTab } from "@/components/ReportesTab";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import instituteLogo from "@/assets/atucsara-logo.jpg.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Control de Cupos de Grado" },
-      { name: "description", content: "Controla la entrada de invitados a la ceremonia de grado con tickets QR, incluso sin internet." },
-      { property: "og:title", content: "Control de Cupos de Grado" },
-      { property: "og:description", content: "Tickets QR de un solo uso y escáner que funciona sin conexión." },
+      { title: "Grados ATUCSARA | Control de Cupos" },
+      { name: "description", content: "Control de entrada a los grados del Instituto Técnico Laboral ATUCSARA con tickets QR, incluso sin internet." },
+      { property: "og:title", content: "Grados ATUCSARA | Control de Cupos" },
+      { property: "og:description", content: "Ceremonias del Instituto Técnico Laboral ATUCSARA: tickets QR de un solo uso y control de acceso sin conexión." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -54,6 +55,14 @@ function Index() {
         {online ? <Wifi className="size-3.5" /> : <WifiOff className="size-3.5" />}
         {online ? "Conectado" : "Sin conexión: funcionando en local"}
       </div>
+      <header className="flex items-center gap-4 border-b border-border bg-card px-5 py-4">
+        <img src={instituteLogo.url} alt="Logo del Instituto Técnico Laboral ATUCSARA" className="size-20 shrink-0 object-contain" />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-muted-foreground">Instituto Técnico Laboral</p>
+          <p className="font-display text-2xl text-primary">ATUCSARA</p>
+          <p className="text-sm text-muted-foreground">Control de Cupos de Grado</p>
+        </div>
+      </header>
       <main className="flex-1">
         {!ok ? (
           <PinGate role={needs} onOk={() => setUnlocked((u) => ({ ...u, [needs]: true }))} />
