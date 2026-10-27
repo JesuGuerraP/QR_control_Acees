@@ -78,8 +78,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Control de Cupos de Grado" },
-      { name: "description", content: "Control de acceso con tickets QR para ceremonias de grado." },
+      { title: "Grados ATUCSARA | Control de Cupos" },
+      { name: "description", content: "Control de acceso con tickets QR para los grados del Instituto Técnico Laboral ATUCSARA." },
       { name: "theme-color", content: "#0b1f4d" },
     ],
     links: [
@@ -100,7 +100,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="es">
       <head>
         <HeadContent />
       </head>

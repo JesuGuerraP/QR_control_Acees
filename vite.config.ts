@@ -21,8 +21,8 @@ export default defineConfig({
         filename: "sw.js",
         devOptions: { enabled: false },
         manifest: {
-          name: "Control de Cupos de Grado",
-          short_name: "Cupos Grado",
+          name: "ATUCSARA · Control de Cupos de Grado",
+          short_name: "Grados ATUCSARA",
           start_url: "/",
           display: "standalone",
           background_color: "#fbfaf5",
@@ -38,6 +38,11 @@ export default defineConfig({
           globPatterns: ["**/*.{js,css,png,svg,woff2}"],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           runtimeCaching: [
+            {
+              urlPattern: ({ url }) => url.pathname.startsWith("/__l5e/assets-v1/"),
+              handler: "CacheFirst",
+              options: { cacheName: "institution-assets" },
+            },
             {
               urlPattern: ({ request, url }) => request.mode === "navigate" && !url.pathname.startsWith("/~oauth"),
               handler: "NetworkFirst",

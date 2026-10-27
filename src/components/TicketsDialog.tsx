@@ -29,7 +29,7 @@ export function TicketsDialog({ graduando, onClose }: { graduando: Graduando | n
   }
 
   async function share({ t, png }: Item) {
-    const text = `Ticket de grado de ${graduando?.nombre} (${t.index} de ${t.total}). Código: ${t.code}`;
+    const text = `Instituto Técnico Laboral ATUCSARA · Ticket de grado de ${graduando?.nombre} (${t.index} de ${t.total}). Código: ${t.code}`;
     try {
       const blob = await (await fetch(png)).blob();
       const file = new File([blob], `${t.code}.png`, { type: "image/png" });
@@ -37,7 +37,10 @@ export function TicketsDialog({ graduando, onClose }: { graduando: Graduando | n
         await navigator.share({ files: [file], text });
         return;
       }
-    } catch { /* fall back to WhatsApp link */ }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      /* The WhatsApp fallback works outside the editor's sandboxed preview. */
+    }
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   }
 

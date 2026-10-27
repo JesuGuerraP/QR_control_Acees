@@ -13,3 +13,4 @@
 - All event data lives in on-device IndexedDB (Dexie, `src/lib/db.ts`); validation never touches the network so the scanner works offline.
 - The app is a single route `/` with in-page tabs, so the offline service worker only has to cache one page.
 - Service worker registers only via `src/lib/pwa.ts` (guarded: never in dev/preview) using vite-plugin-pwa generateSW.
+- Institutional images use Lovable Assets pointers shared by the interface and ticket renderer, with production service-worker caching so previously loaded branding remains available offline.
