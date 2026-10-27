@@ -36,7 +36,7 @@ export function ReportesTab() {
   }
 
   async function saveCfg() {
-    if (!/^\d{4,8}$/.test(cfg.pinPortero) || !/^\d{4,8}$/.test(cfg.pinAdmin)) return toast.error("Los PIN deben tener de 4 a 8 dígitos");
+    if (!/^\d{4,8}$/.test(cfg.pinPortero) || !/^\d{4,8}$/.test(cfg.pinAdmin)) { toast.error("Los PIN deben tener de 4 a 8 dígitos"); return; }
     await Promise.all(Object.entries(cfg).map(([k, v]) => setSetting(k, v)));
     toast.success("Configuración guardada");
   }

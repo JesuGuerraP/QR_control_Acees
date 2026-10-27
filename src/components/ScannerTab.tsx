@@ -99,7 +99,7 @@ export function ScannerTab() {
   async function anular(code: string) {
     const pin = prompt("PIN de administrador para anular el ingreso");
     if (pin === null) return;
-    if (pin !== (await getSetting("pinAdmin"))) return toast.error("PIN incorrecto");
+    if (pin !== (await getSetting("pinAdmin"))) { toast.error("PIN incorrecto"); return; }
     await anularIngreso(code);
     toast.success(`Ingreso ${code} anulado`);
   }

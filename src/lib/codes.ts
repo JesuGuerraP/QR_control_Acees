@@ -23,9 +23,9 @@ export function qrPayload(code: string, sig: string) {
   return `${code}.${sig}`;
 }
 
-export function parsePayload(text: string): { code: string; sig?: string } | null {
+export function parsePayload(text: string): { code: string; sig?: string | undefined } | null {
   const clean = text.trim().toUpperCase().replace(/\s+/g, "");
   const m = clean.match(/^(GRA-[A-Z0-9]{6})(?:\.([A-Z0-9]{8}))?$/);
   if (!m) return null;
-  return { code: m[1], sig: m[2] };
+  return { code: m[1]!, sig: m[2] };
 }
