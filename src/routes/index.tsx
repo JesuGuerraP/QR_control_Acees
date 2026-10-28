@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { BarChart3, ScanLine, Users, Wifi, WifiOff, Lock } from "lucide-react";
-import { getSetting } from "@/lib/db";
+import { login, syncNow } from "@/lib/sync";
 import { setupServiceWorker } from "@/lib/pwa";
 import { GraduandosTab } from "@/components/GraduandosTab";
 import { ScannerTab } from "@/components/ScannerTab";
@@ -40,6 +40,16 @@ function Index() {
     return () => { window.removeEventListener("online", upd); window.removeEventListener("offline", upd); };
   }, []);
 
+  const anyUnlocked = unlocked.admin || unlocked.portero;
+  useEffect(() => {
+    if (!anyUnlocked) return;
+    const run = () => { syncNow().catch((e) => console.warn("sync", e)); };
+    run();
+    const id = setInterval(run, 8000);
+    window.addEventListener("online", run);
+    return () => { clearInterval(id); window.removeEventListener("online", run); };
+  }, [anyUnlocked]);
+
   const needs = tab === "scanner" ? "portero" : "admin";
   const ok = unlocked.admin || (needs === "portero" && unlocked.portero);
 
@@ -53,7 +63,7 @@ function Index() {
     <div className="mx-auto flex min-h-screen max-w-xl flex-col bg-background pb-20">
       <div className={`flex items-center justify-center gap-2 py-1 text-xs font-semibold ${online ? "bg-muted text-muted-foreground" : "bg-warning text-warning-foreground"}`}>
         {online ? <Wifi className="size-3.5" /> : <WifiOff className="size-3.5" />}
-        {online ? "Conectado" : "Sin conexión: funcionando en local"}
+        {online ? "Conectado · sincronizando con la nube" : "Sin conexión: los ingresos se enviarán al volver internet"}
       </div>
       <header className="flex items-center gap-4 border-b border-border bg-card px-5 py-4">
         <img src={instituteLogo.url} alt="Logo del Instituto Técnico Laboral ATUCSARA" className="size-20 shrink-0 object-contain" />
@@ -87,8 +97,7 @@ function PinGate({ role, onOk }: { role: "admin" | "portero"; onOk: () => void }
   const [err, setErr] = useState(false);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const [a, p] = [await getSetting("pinAdmin"), await getSetting("pinPortero")];
-    if (pin === a || (role === "portero" && pin === p)) onOk();
+    if (await login(pin, role)) onOk();
     else { setErr(true); setPin(""); }
   }
   return (

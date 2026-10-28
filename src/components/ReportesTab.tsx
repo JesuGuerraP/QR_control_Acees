@@ -3,6 +3,8 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { CloudDownload, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { db, getSetting, setSetting } from "@/lib/db";
+import { cloudSaveSettings } from "@/lib/sync.functions";
+import { requirePin, syncNow } from "@/lib/sync";
 import { exportCsv } from "@/lib/tickets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +31,7 @@ export function ReportesTab() {
   }, []);
 
   async function prepare() {
-    await getSetting("secret");
+    try { await syncNow(); } catch { toast.error("No se pudo conectar con la nube; se usan los datos guardados"); }
     await navigator.storage?.persist?.().catch(() => false);
     const n = await db().tickets.count();
     setReady(`Listo para funcionar sin internet: ${n} tickets cargados en este dispositivo.`);
@@ -37,6 +39,8 @@ export function ReportesTab() {
 
   async function saveCfg() {
     if (!/^\d{4,8}$/.test(cfg.pinPortero) || !/^\d{4,8}$/.test(cfg.pinAdmin)) { toast.error("Los PIN deben tener de 4 a 8 dígitos"); return; }
+    try { await cloudSaveSettings({ data: { pin: requirePin(), ...cfg } }); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Necesitas internet"); return; }
     await Promise.all(Object.entries(cfg).map(([k, v]) => setSetting(k, v)));
     toast.success("Configuración guardada");
   }
@@ -81,7 +85,7 @@ export function ReportesTab() {
         <div className="space-y-1"><Label>PIN de administrador</Label><Input inputMode="numeric" className="h-11" value={cfg.pinAdmin} onChange={(e) => setCfg({ ...cfg, pinAdmin: e.target.value })} /></div>
         <Button className="w-full" onClick={saveCfg}>Guardar configuración</Button>
         <p className="rounded-lg bg-accent p-3 text-sm text-accent-foreground">
-          Sin internet, cada dispositivo solo conoce sus propios ingresos. Usa <b>un solo dispositivo de control por puerta</b> y prepara los tickets en ese mismo dispositivo.
+          La lista y los ingresos se comparten en la nube entre todos los dispositivos. Sin internet, cada equipo sigue escaneando con su última copia y envía los ingresos al reconectar.
         </p>
       </section>
     </div>
