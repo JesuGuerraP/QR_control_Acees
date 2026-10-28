@@ -66,3 +66,19 @@ export async function getSetting(key: keyof typeof DEFAULTS | "secret"): Promise
 export async function setSetting(key: string, value: string) {
   await db().settings.put({ key, value });
 }
+
+/** Saved program names (used as options in the graduando form). */
+export async function getProgramas(): Promise<string[]> {
+  const row = await db().settings.get("programas");
+  if (!row) return [];
+  try {
+    const parsed: unknown = JSON.parse(row.value);
+    return Array.isArray(parsed) ? parsed.filter((p): p is string => typeof p === "string" && p.trim().length > 0) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveProgramas(list: string[]) {
+  await setSetting("programas", JSON.stringify(list));
+}

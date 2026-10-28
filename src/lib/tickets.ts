@@ -1,5 +1,6 @@
 import { db, getSetting, type Graduando, type Ticket } from "./db";
-import { parsePayload, randomCode, signCode } from "./codes";
+import { randomCode, signCode, parsePayload } from "./codes";
+import { uuid } from "./pure-crypto";
 import { cloudAnular, cloudDeleteGraduando, cloudMark, cloudSaveGraduando } from "./sync.functions";
 import { isOnline, requirePin } from "./sync";
 
@@ -19,7 +20,7 @@ async function uniqueCode(): Promise<string> {
 export async function saveGraduando(g: Omit<Graduando, "id" | "createdAt"> & { id?: string }) {
   const pin = needCloud();
   const secret = await getSetting("secret");
-  const id = g.id ?? crypto.randomUUID();
+  const id = g.id ?? uuid();
   const existing = await db().tickets.where("graduandoId").equals(id).sortBy("index");
   const cupos = Math.max(0, Math.floor(g.cupos));
 

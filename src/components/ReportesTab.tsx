@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { CloudDownload, FileDown } from "lucide-react";
+import { CloudDownload, FileDown, Plus, X } from "lucide-react";
 import { toast } from "sonner";
-import { db, getSetting, setSetting } from "@/lib/db";
-import { cloudSaveSettings } from "@/lib/sync.functions";
+import { db, getProgramas, getSetting, saveProgramas, setSetting } from "@/lib/db";
+import { cloudSaveProgramas, cloudSaveSettings } from "@/lib/sync.functions";
 import { requirePin, syncNow } from "@/lib/sync";
 import { exportCsv } from "@/lib/tickets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 export function ReportesTab() {
   const stats = useLiveQuery(async () => {
@@ -21,17 +22,59 @@ export function ReportesTab() {
   }, []);
   const [cfg, setCfg] = useState({ cuposDefault: "", pinPortero: "", pinAdmin: "" });
   const [ready, setReady] = useState<string | null>(null);
+  const [programas, setProgramas] = useState<string[]>([]);
+  const [nuevo, setNuevo] = useState("");
 
   useEffect(() => {
-    (async () => setCfg({
-      cuposDefault: await getSetting("cuposDefault"),
-      pinPortero: await getSetting("pinPortero"),
-      pinAdmin: await getSetting("pinAdmin"),
-    }))();
+    (async () => {
+      setCfg({
+        cuposDefault: await getSetting("cuposDefault"),
+        pinPortero: await getSetting("pinPortero"),
+        pinAdmin: await getSetting("pinAdmin"),
+      });
+      setProgramas(await getProgramas());
+    })();
   }, []);
 
+  async function persistProgramas(next: string[], accion: "agregado" | "eliminado") {
+    setProgramas(next);
+    await saveProgramas(next);
+    try {
+      await cloudSaveProgramas({ data: { pin: requirePin(), programas: JSON.stringify(next) } });
+      await db().settings.delete("programasDirty");
+      toast.success(`Programa ${accion} con éxito`, { description: "Disponible también en los otros dispositivos." });
+    } catch {
+      await setSetting("programasDirty", "1");
+      toast.success(`Programa ${accion} en este dispositivo`, {
+        description: "Se enviará a la nube cuando vuelva internet.",
+      });
+    }
+  }
+
+  async function agregarPrograma() {
+    const nombre = nuevo.trim();
+    if (!nombre) return;
+    if (nombre.length > 80) { toast.error("El nombre del programa es muy largo (máx. 80 caracteres)"); return; }
+    if (programas.some((p) => p.toLowerCase() === nombre.toLowerCase())) {
+      toast.warning("Ese programa ya está agregado");
+      setNuevo("");
+      return;
+    }
+    setNuevo("");
+    await persistProgramas([...programas, nombre], "agregado");
+  }
+
+  async function eliminarPrograma(nombre: string) {
+    await persistProgramas(programas.filter((p) => p !== nombre), "eliminado");
+  }
+
   async function prepare() {
-    try { await syncNow(); } catch { toast.error("No se pudo conectar con la nube; se usan los datos guardados"); }
+    try {
+      await syncNow();
+      toast.success("Datos descargados con éxito");
+    } catch {
+      toast.error("No se pudo conectar con la nube; se usan los datos guardados");
+    }
     await navigator.storage?.persist?.().catch(() => false);
     const n = await db().tickets.count();
     setReady(`Listo para funcionar sin internet: ${n} tickets cargados en este dispositivo.`);
@@ -40,9 +83,18 @@ export function ReportesTab() {
   async function saveCfg() {
     if (!/^\d{4,8}$/.test(cfg.pinPortero) || !/^\d{4,8}$/.test(cfg.pinAdmin)) { toast.error("Los PIN deben tener de 4 a 8 dígitos"); return; }
     try { await cloudSaveSettings({ data: { pin: requirePin(), ...cfg } }); }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Necesitas internet"); return; }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Necesitas internet para cambiar la configuración"); return; }
     await Promise.all(Object.entries(cfg).map(([k, v]) => setSetting(k, v)));
-    toast.success("Configuración guardada");
+    toast.success("Configuración guardada con éxito");
+  }
+
+  async function exportar() {
+    try {
+      await exportCsv();
+      toast.success("Reporte exportado con éxito", { description: "Se descargó el archivo CSV con todos los tickets." });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo exportar el reporte");
+    }
   }
 
   const pend = (stats?.t ?? 0) - (stats?.u ?? 0);
@@ -75,8 +127,36 @@ export function ReportesTab() {
       <div className="space-y-2">
         <Button size="lg" variant="gold" className="w-full" onClick={prepare}><CloudDownload /> Descargar datos para el evento</Button>
         {ready && <p className="rounded-lg bg-success p-3 font-semibold text-success-foreground">{ready}</p>}
-        <Button size="lg" variant="outline" className="w-full" onClick={exportCsv}><FileDown /> Exportar CSV</Button>
+        <Button size="lg" variant="outline" className="w-full" onClick={exportar}><FileDown /> Exportar CSV</Button>
       </div>
+
+      <section className="space-y-3 rounded-xl border-2 border-border bg-card p-4">
+        <h2 className="text-lg">Programas de estudio</h2>
+        <div className="flex gap-2">
+          <Input
+            className="h-11 text-base"
+            placeholder="Nombre del programa (ej. Sistemas)"
+            value={nuevo}
+            onChange={(e) => setNuevo(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); agregarPrograma(); } }}
+          />
+          <Button className="h-11 shrink-0" onClick={agregarPrograma}><Plus /> Agregar</Button>
+        </div>
+        {programas.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {programas.map((p) => (
+              <Badge key={p} variant="secondary" className="gap-1 px-3 py-1.5 text-sm font-semibold">
+                {p}
+                <button onClick={() => eliminarPrograma(p)} aria-label={`Quitar ${p}`} className="ml-1 rounded-full hover:bg-destructive/15">
+                  <X className="size-3.5" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Aún no hay programas. Agrégalos y aparecerán como lista al crear o editar graduandos.</p>
+        )}
+      </section>
 
       <section className="space-y-3 rounded-xl border-2 border-border bg-card p-4">
         <h2 className="text-lg">Configuración</h2>

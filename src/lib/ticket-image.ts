@@ -1,16 +1,15 @@
 import QRCode from "qrcode";
 import type { Graduando, Ticket } from "./db";
 import { qrPayload } from "./codes";
-import instituteLogo from "@/assets/atucsara-logo.jpg.asset.json";
+import instituteLogo from "@/assets/atucsara-logo.jpg";
 
 let logoPromise: Promise<HTMLImageElement | null> | undefined;
 function loadLogo() {
   logoPromise ??= new Promise<HTMLImageElement | null>((resolve) => {
     const image = new Image();
-    image.crossOrigin = "anonymous";
     image.onload = () => resolve(image);
     image.onerror = () => { logoPromise = undefined; resolve(null); };
-    image.src = instituteLogo.url;
+    image.src = instituteLogo;
   });
   return logoPromise;
 }

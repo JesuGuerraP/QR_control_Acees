@@ -3,12 +3,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { BarChart3, ScanLine, Users, Wifi, WifiOff, Lock } from "lucide-react";
 import { login, syncNow } from "@/lib/sync";
 import { setupServiceWorker } from "@/lib/pwa";
+import { toast } from "sonner";
 import { GraduandosTab } from "@/components/GraduandosTab";
 import { ScannerTab } from "@/components/ScannerTab";
 import { ReportesTab } from "@/components/ReportesTab";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import instituteLogo from "@/assets/atucsara-logo.jpg.asset.json";
+import instituteLogo from "@/assets/atucsara-logo.jpg";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -66,7 +67,7 @@ function Index() {
         {online ? "Conectado · sincronizando con la nube" : "Sin conexión: los ingresos se enviarán al volver internet"}
       </div>
       <header className="flex items-center gap-4 border-b border-border bg-card px-5 py-4">
-        <img src={instituteLogo.url} alt="Logo del Instituto Técnico Laboral ATUCSARA" className="size-20 shrink-0 object-contain" />
+        <img src={instituteLogo} alt="Logo del Instituto Técnico Laboral ATUCSARA" className="size-20 shrink-0 object-contain" />
         <div className="min-w-0">
           <p className="text-sm font-semibold text-muted-foreground">Instituto Técnico Laboral</p>
           <p className="font-display text-2xl text-primary">ATUCSARA</p>
@@ -97,8 +98,11 @@ function PinGate({ role, onOk }: { role: "admin" | "portero"; onOk: () => void }
   const [err, setErr] = useState(false);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (await login(pin, role)) onOk();
-    else { setErr(true); setPin(""); }
+    if (await login(pin, role)) {
+      toast.success("Bienvenido 👋", { description: role === "admin" ? "Modo de administrador iniciado." : "Modo de portero iniciado." });
+      onOk();
+    }
+    else { setErr(true); setPin(""); toast.error("PIN incorrecto", { description: "Vuelve a intentarlo." }); }
   }
   return (
     <form onSubmit={submit} className="flex flex-col items-center gap-4 px-6 pt-20 text-center">

@@ -44,17 +44,18 @@ export function ScannerTab() {
     return ts.map((t, i) => ({ t, g: gs[i] }));
   }, []);
 
-  const handle = useCallback(async (text: string) => {
+  const handle = useCallback(async (text: string): Promise<ScanResult | null> => {
     const key = text.trim().toUpperCase();
     const now = Date.now();
-    if (busy.current || resultRef.current) return;
-    if (key === last.current.code && now - last.current.at < 3000) return; // anti-rebote 3s
+    if (busy.current || resultRef.current) return null;
+    if (key === last.current.code && now - last.current.at < 3000) return null; // anti-rebote 3s
     last.current = { code: key, at: now };
     busy.current = true;
     try {
       const r = await validateAndMark(key);
       feedback(r.kind);
       setResult(r);
+      return r;
     } finally {
       busy.current = false;
     }
@@ -91,6 +92,7 @@ export function ScannerTab() {
     try {
       await scannerRef.current?.applyVideoConstraints({ advanced: [{ torch: !torchOn } as MediaTrackConstraintSet] });
       setTorchOn(!torchOn);
+      toast.success(torchOn ? "Linterna apagada" : "Linterna encendida");
     } catch {
       toast.error("Este dispositivo no permite linterna");
     }
@@ -120,7 +122,16 @@ export function ScannerTab() {
       </div>
 
       {showManual && (
-        <form className="flex gap-2 p-4" onSubmit={(e) => { e.preventDefault(); last.current = { code: "", at: 0 }; handle(manual); setManual(""); }}>
+        <form
+          className="flex gap-2 p-4"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            last.current = { code: "", at: 0 };
+            const r = await handle(manual);
+            if (r?.kind === "ok") toast.success(`Ticket ${r.ticket.code} validado con éxito`, { description: `Entrada de ${r.graduando?.nombre ?? "el graduando"} registrada.` });
+            setManual("");
+          }}
+        >
           <Input autoFocus value={manual} onChange={(e) => setManual(e.target.value.toUpperCase())} placeholder="GRA-XXXXXX" className="h-14 font-mono text-xl uppercase" />
           <Button type="submit" size="lg">Validar</Button>
         </form>

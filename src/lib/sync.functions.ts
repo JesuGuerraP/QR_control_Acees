@@ -21,6 +21,7 @@ async function loadSettings() {
     pinPortero: m["pinPortero"] ?? "0000",
     cuposDefault: m["cuposDefault"] ?? "4",
     secret: m["secret"] ?? null,
+    programas: m["programas"] ?? "[]",
   };
 }
 
@@ -55,6 +56,7 @@ export const cloudPull = createServerFn({ method: "POST" })
         cuposDefault: s.cuposDefault,
         pinPortero: s.pinPortero,
         pinAdmin: role === "admin" ? s.pinAdmin : null,
+        programas: s.programas,
       },
       graduandos: gs.data.map((g) => ({ id: g.id, nombre: g.nombre, documento: g.documento, programa: g.programa, cupos: g.cupos, createdAt: Number(g.created_at) })),
       tickets: ts.data.map((t) => ({ code: t.code, sig: t.sig, graduandoId: t.graduando_id, index: t.idx, total: t.total, usedAt: t.used_at == null ? null : Number(t.used_at) })),
@@ -125,6 +127,19 @@ export const cloudAnular = createServerFn({ method: "POST" })
     await roleFor(data.pin, "admin");
     const sb = await admin();
     await sb.from("tickets").update({ used_at: null }).eq("code", data.code);
+    return { ok: true };
+  });
+
+export const cloudSaveProgramas = createServerFn({ method: "POST" })
+  .inputValidator((d: { pin: string; programas: string }) => ({ pin: str(d.pin), programas: str(d.programas) }))
+  .handler(async ({ data }) => {
+    await roleFor(data.pin, "admin");
+    let list: unknown;
+    try { list = JSON.parse(data.programas); } catch { throw new Error("Datos inválidos"); }
+    if (!Array.isArray(list) || list.some((p) => typeof p !== "string" || p.length > 80)) throw new Error("Datos inválidos");
+    const sb = await admin();
+    const { error } = await sb.from("app_settings").upsert({ key: "programas", value: data.programas });
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 

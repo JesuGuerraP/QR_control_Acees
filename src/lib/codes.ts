@@ -1,4 +1,6 @@
 // Pure ticket code + signature helpers (no database).
+import { hmacSha256Bytes } from "./pure-crypto";
+
 export const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
 export function randomCode(): string {
@@ -6,16 +8,22 @@ export function randomCode(): string {
   return "GRA-" + Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join("");
 }
 
+/** HMAC/WebCrypto cuando existe; respaldo en JS puro (HTTP sin HTTPS). */
 export async function signCode(code: string, secret: string): Promise<string> {
   const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const mac = new Uint8Array(await crypto.subtle.sign("HMAC", key, enc.encode(code)));
+  let mac: Uint8Array;
+  if (typeof crypto !== "undefined" && crypto.subtle) {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      enc.encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    mac = new Uint8Array(await crypto.subtle.sign("HMAC", key, enc.encode(code)));
+  } else {
+    mac = hmacSha256Bytes(enc.encode(secret), enc.encode(code));
+  }
   return Array.from(mac.slice(0, 8), (b) => ALPHABET[b % ALPHABET.length]).join("");
 }
 

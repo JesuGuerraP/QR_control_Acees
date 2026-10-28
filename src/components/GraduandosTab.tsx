@@ -2,12 +2,13 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Pencil, Plus, QrCode, Trash2, Upload, Search } from "lucide-react";
 import { toast } from "sonner";
-import { db, getSetting, type Graduando } from "@/lib/db";
+import { db, getProgramas, getSetting, type Graduando } from "@/lib/db";
 import { deleteGraduando, parseGraduandosCsv, saveGraduando } from "@/lib/tickets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TicketsDialog } from "./TicketsDialog";
 
 type Form = { id?: string; nombre: string; documento: string; programa: string; cupos: number };
@@ -17,6 +18,15 @@ export function GraduandosTab() {
   const [form, setForm] = useState<Form | null>(null);
   const [ticketsFor, setTicketsFor] = useState<Graduando | null>(null);
   const graduandos = useLiveQuery(() => db().graduandos.orderBy("nombre").toArray(), []);
+  const programasQuery = useLiveQuery(() => db().settings.get("programas"), []);
+  const programas = programasQuery
+    ? (() => {
+        try {
+          const parsed: unknown = JSON.parse(programasQuery.value);
+          return Array.isArray(parsed) ? parsed.filter((p): p is string => typeof p === "string" && p.trim().length > 0) : [];
+        } catch { return []; }
+      })()
+    : [];
   const usedCounts = useLiveQuery(async () => {
     const m = new Map<string, number>();
     await db().tickets.where("usedAt").above(0).each((t) => m.set(t.graduandoId, (m.get(t.graduandoId) ?? 0) + 1));
@@ -28,7 +38,14 @@ export function GraduandosTab() {
   );
 
   async function openNew() {
-    setForm({ nombre: "", documento: "", programa: "", cupos: parseInt(await getSetting("cuposDefault"), 10) || 4 });
+    const list = await getProgramas();
+    setForm({
+      nombre: "",
+      documento: "",
+      // Si solo hay un programa, se preselecciona automáticamente.
+      programa: list.length === 1 ? list[0] ?? "" : "",
+      cupos: parseInt(await getSetting("cuposDefault"), 10) || 4,
+    });
   }
 
   async function submit(e: React.FormEvent) {
@@ -36,7 +53,8 @@ export function GraduandosTab() {
     if (!form || !form.nombre.trim()) return;
     try {
       await saveGraduando(form);
-      toast.success(form.id ? "Graduando actualizado" : `Graduando creado con ${form.cupos} tickets`);
+      if (form.id) toast.success("Cambios guardados con éxito");
+      else toast.success("Graduando creado con éxito", { description: `Se generaron ${form.cupos} tickets con QR para ${form.nombre}.` });
       setForm(null);
     } catch (err) {
       toast.error((err as Error).message);
@@ -48,7 +66,7 @@ export function GraduandosTab() {
     const rows = parseGraduandosCsv(await file.text(), def);
     try { for (const r of rows) await saveGraduando(r); }
     catch (err) { toast.error((err as Error).message); return; }
-    toast.success(`${rows.length} graduandos importados`);
+    toast.success(`${rows.length} graduandos importados con éxito`);
   }
 
   return (
@@ -82,7 +100,11 @@ export function GraduandosTab() {
             <Button size="icon" variant="default" aria-label="Ver tickets" onClick={() => setTicketsFor(g)}><QrCode /></Button>
             <Button size="icon" variant="outline" aria-label="Editar" onClick={() => setForm(g)}><Pencil /></Button>
             <Button size="icon" variant="ghost" aria-label="Eliminar" onClick={async () => {
-              if (confirm(`¿Eliminar a ${g.nombre} y sus tickets?`)) await deleteGraduando(g.id).catch((err: Error) => toast.error(err.message));
+              if (!confirm(`¿Eliminar a ${g.nombre} y sus tickets?`)) return;
+              try {
+                await deleteGraduando(g.id);
+                toast.success(`Graduando "${g.nombre}" eliminado con éxito`);
+              } catch (err) { toast.error((err as Error).message); }
             }}><Trash2 /></Button>
           </li>
         ))}
@@ -98,12 +120,32 @@ export function GraduandosTab() {
           <DialogHeader><DialogTitle>{form?.id ? "Editar graduando" : "Nuevo graduando"}</DialogTitle></DialogHeader>
           {form && (
             <form onSubmit={submit} className="space-y-3">
-              {(["nombre", "documento", "programa"] as const).map((k) => (
+              {(["nombre", "documento"] as const).map((k) => (
                 <div key={k} className="space-y-1">
-                  <Label className="capitalize">{k === "nombre" ? "Nombre completo" : k}</Label>
+                  <Label>{k === "nombre" ? "Nombre completo" : "Documento"}</Label>
                   <Input className="h-11 text-base" required={k === "nombre"} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
                 </div>
               ))}
+              <div className="space-y-1">
+                <Label>Programa</Label>
+                {programas.length > 0 ? (
+                  <Select value={form.programa} onValueChange={(v) => setForm({ ...form, programa: v })}>
+                    <SelectTrigger className="h-11 w-full text-base">
+                      <SelectValue placeholder="Selecciona un programa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {programas.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    className="h-11 text-base"
+                    placeholder="Ej. Sistemas"
+                    value={form.programa}
+                    onChange={(e) => setForm({ ...form, programa: e.target.value })}
+                  />
+                )}
+              </div>
               <div className="space-y-1">
                 <Label>Número de cupos</Label>
                 <Input className="h-11 text-base" type="number" min={0} max={50} value={form.cupos} onChange={(e) => setForm({ ...form, cupos: parseInt(e.target.value, 10) || 0 })} />

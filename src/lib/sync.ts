@@ -41,6 +41,11 @@ async function apply(p: Pulled) {
     await d.settings.put({ key: "cuposDefault", value: p.settings.cuposDefault });
     await d.settings.put({ key: "pinPortero", value: p.settings.pinPortero });
     if (p.settings.pinAdmin) await d.settings.put({ key: "pinAdmin", value: p.settings.pinAdmin });
+    // Local edits made offline win until the cloud retry below succeeds.
+    const dirty = await d.settings.get("programasDirty");
+    if (!dirty && typeof p.settings.programas === "string") {
+      await d.settings.put({ key: "programas", value: p.settings.programas });
+    }
   });
 }
 
@@ -64,6 +69,16 @@ export function syncNow(): Promise<void> {
       p = await cloudPull({ data: { pin: s.pin } });
     }
     await apply(p);
+    // Retry pending program-list edits (saved offline in ReportesTab).
+    try {
+      const d = db();
+      const { getProgramas } = await import("./db");
+      if (await d.settings.get("programasDirty")) {
+        const { cloudSaveProgramas } = await import("./sync.functions");
+        await cloudSaveProgramas({ data: { pin: s.pin, programas: JSON.stringify(await getProgramas()) } });
+        await d.settings.delete("programasDirty");
+      }
+    } catch { /* se reintenta en el próximo sync */ }
     lastSync = Date.now();
   })().finally(() => { running = null; });
   return running;
