@@ -1,5 +1,12 @@
 import { db, getSetting, type Graduando, type Ticket } from "./db";
 import { parsePayload, randomCode, signCode } from "./codes";
+import { cloudAnular, cloudDeleteGraduando, cloudMark, cloudSaveGraduando } from "./sync.functions";
+import { isOnline, requirePin } from "./sync";
+
+function needCloud() {
+  if (!isOnline()) throw new Error("Necesitas internet para modificar la lista compartida");
+  return requirePin();
+}
 
 async function uniqueCode(): Promise<string> {
   for (;;) {
@@ -10,6 +17,7 @@ async function uniqueCode(): Promise<string> {
 
 /** Create or update a graduando and keep one ticket per cupo. */
 export async function saveGraduando(g: Omit<Graduando, "id" | "createdAt"> & { id?: string }) {
+  const pin = needCloud();
   const secret = await getSetting("secret");
   const id = g.id ?? crypto.randomUUID();
   const existing = await db().tickets.where("graduandoId").equals(id).sortBy("index");
@@ -21,7 +29,6 @@ export async function saveGraduando(g: Omit<Graduando, "id" | "createdAt"> & { i
     const extra = existing.slice(cupos);
     if (extra.some((t) => t.usedAt)) throw new Error("No se pueden quitar cupos ya utilizados");
     keep = existing.slice(0, cupos);
-    await db().tickets.bulkDelete(extra.map((t) => t.code));
   }
   const fresh: Ticket[] = [];
   for (let i = keep.length; i < cupos; i++) {
@@ -29,21 +36,26 @@ export async function saveGraduando(g: Omit<Graduando, "id" | "createdAt"> & { i
     fresh.push({ code, sig: await signCode(code, secret), graduandoId: id, index: i + 1, total: cupos });
   }
   const prev = g.id ? await db().graduandos.get(g.id) : undefined;
+  const graduando: Graduando = {
+    id,
+    nombre: g.nombre.trim(),
+    documento: g.documento.trim(),
+    programa: g.programa.trim(),
+    cupos,
+    createdAt: prev?.createdAt ?? Date.now(),
+  };
+  const all = [...keep.map((t, i) => ({ ...t, index: i + 1, total: cupos })), ...fresh];
+  await cloudSaveGraduando({ data: { pin, graduando, tickets: all } });
   await db().transaction("rw", db().graduandos, db().tickets, async () => {
-    await db().graduandos.put({
-      id,
-      nombre: g.nombre.trim(),
-      documento: g.documento.trim(),
-      programa: g.programa.trim(),
-      cupos,
-      createdAt: prev?.createdAt ?? Date.now(),
-    });
-    await db().tickets.bulkPut([...keep.map((t, i) => ({ ...t, index: i + 1, total: cupos })), ...fresh]);
+    if (existing.length > cupos) await db().tickets.bulkDelete(existing.slice(cupos).map((t) => t.code));
+    await db().graduandos.put(graduando);
+    await db().tickets.bulkPut(all);
   });
   return id;
 }
 
 export async function deleteGraduando(id: string) {
+  await cloudDeleteGraduando({ data: { pin: needCloud(), id } });
   await db().transaction("rw", db().graduandos, db().tickets, async () => {
     await db().tickets.where("graduandoId").equals(id).delete();
     await db().graduandos.delete(id);
@@ -70,13 +82,32 @@ export async function validateAndMark(text: string): Promise<ScanResult> {
     if (parsed.sig && t.sig !== parsed.sig) return { kind: "invalid", reason: "Firma incorrecta" };
     const g = await d.graduandos.get(t.graduandoId);
     if (t.usedAt) return { kind: "used", ticket: t, graduando: g, usedAt: t.usedAt };
+    return { kind: "ok", ticket: t, graduando: g };
+  }).then(async (r) => {
+    if (r.kind !== "ok") return r;
     const usedAt = Date.now();
-    await d.tickets.update(t.code, { usedAt });
-    return { kind: "ok", ticket: { ...t, usedAt }, graduando: g };
+    const code = r.ticket.code;
+    if (isOnline()) {
+      try {
+        const c = await cloudMark({ data: { pin: requirePin(), code, usedAt } });
+        if (c.status === "missing") return { kind: "invalid", reason: "Código anulado o eliminado" };
+        await d.tickets.update(code, { usedAt: c.usedAt! });
+        if (c.status === "used") return { kind: "used", ticket: { ...r.ticket, usedAt: c.usedAt! }, graduando: r.graduando, usedAt: c.usedAt! };
+        return { ...r, ticket: { ...r.ticket, usedAt } };
+      } catch { /* sin conexión real: seguir local */ }
+    }
+    await d.transaction("rw", d.tickets, d.outbox, async () => {
+      await d.tickets.update(code, { usedAt });
+      await d.outbox.put({ code, usedAt });
+    });
+    return { ...r, ticket: { ...r.ticket, usedAt } };
   });
 }
 
-export async function anularIngreso(code: string) {
+export async function anularIngreso(code: string, adminPin: string) {
+  if (!isOnline()) throw new Error("Necesitas internet para anular");
+  await cloudAnular({ data: { pin: adminPin, code } });
+  await db().outbox.delete(code);
   await db().tickets.where("code").equals(code).modify((t) => {
     delete t.usedAt;
   });

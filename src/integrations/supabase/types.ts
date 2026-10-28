@@ -14,7 +14,83 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_settings: {
+        Row: {
+          key: string
+          value: string
+        }
+        Insert: {
+          key: string
+          value: string
+        }
+        Update: {
+          key?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      graduandos: {
+        Row: {
+          created_at: number
+          cupos: number
+          documento: string
+          id: string
+          nombre: string
+          programa: string
+        }
+        Insert: {
+          created_at: number
+          cupos?: number
+          documento?: string
+          id: string
+          nombre: string
+          programa?: string
+        }
+        Update: {
+          created_at?: number
+          cupos?: number
+          documento?: string
+          id?: string
+          nombre?: string
+          programa?: string
+        }
+        Relationships: []
+      }
+      tickets: {
+        Row: {
+          code: string
+          graduando_id: string
+          idx: number
+          sig: string
+          total: number
+          used_at: number | null
+        }
+        Insert: {
+          code: string
+          graduando_id: string
+          idx: number
+          sig: string
+          total: number
+          used_at?: number | null
+        }
+        Update: {
+          code?: string
+          graduando_id?: string
+          idx?: number
+          sig?: string
+          total?: number
+          used_at?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_graduando_id_fkey"
+            columns: ["graduando_id"]
+            isOneToOne: false
+            referencedRelation: "graduandos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

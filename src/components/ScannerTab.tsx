@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CheckCircle2, Flashlight, AlertTriangle, XCircle, Keyboard } from "lucide-react";
 import { toast } from "sonner";
-import { db, getSetting } from "@/lib/db";
+import { db } from "@/lib/db";
 import { anularIngreso, validateAndMark, type ScanResult } from "@/lib/tickets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,8 +99,7 @@ export function ScannerTab() {
   async function anular(code: string) {
     const pin = prompt("PIN de administrador para anular el ingreso");
     if (pin === null) return;
-    if (pin !== (await getSetting("pinAdmin"))) { toast.error("PIN incorrecto"); return; }
-    await anularIngreso(code);
+    try { await anularIngreso(code, pin); } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo anular"); return; }
     toast.success(`Ingreso ${code} anulado`);
   }
 

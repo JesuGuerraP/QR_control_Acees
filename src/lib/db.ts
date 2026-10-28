@@ -27,6 +27,7 @@ class CuposDB extends Dexie {
   graduandos!: Table<Graduando, string>;
   tickets!: Table<Ticket, string>;
   settings!: Table<Setting, string>;
+  outbox!: Table<{ code: string; usedAt: number }, string>;
   constructor() {
     super("cupos-grado");
     this.version(1).stores({
@@ -34,6 +35,7 @@ class CuposDB extends Dexie {
       tickets: "code, graduandoId, usedAt",
       settings: "key",
     });
+    this.version(2).stores({ outbox: "code" });
   }
 }
 
