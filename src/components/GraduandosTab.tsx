@@ -46,7 +46,8 @@ export function GraduandosTab() {
   async function importCsv(file: File) {
     const def = parseInt(await getSetting("cuposDefault"), 10) || 4;
     const rows = parseGraduandosCsv(await file.text(), def);
-    for (const r of rows) await saveGraduando(r);
+    try { for (const r of rows) await saveGraduando(r); }
+    catch (err) { toast.error((err as Error).message); return; }
     toast.success(`${rows.length} graduandos importados`);
   }
 
@@ -81,7 +82,7 @@ export function GraduandosTab() {
             <Button size="icon" variant="default" aria-label="Ver tickets" onClick={() => setTicketsFor(g)}><QrCode /></Button>
             <Button size="icon" variant="outline" aria-label="Editar" onClick={() => setForm(g)}><Pencil /></Button>
             <Button size="icon" variant="ghost" aria-label="Eliminar" onClick={async () => {
-              if (confirm(`¿Eliminar a ${g.nombre} y sus tickets?`)) await deleteGraduando(g.id);
+              if (confirm(`¿Eliminar a ${g.nombre} y sus tickets?`)) await deleteGraduando(g.id).catch((err: Error) => toast.error(err.message));
             }}><Trash2 /></Button>
           </li>
         ))}
