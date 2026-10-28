@@ -10,7 +10,8 @@
 <!-- LOVABLE:END -->
 
 ## Architecture rules
-- All event data lives in on-device IndexedDB (Dexie, `src/lib/db.ts`); validation never touches the network so the scanner works offline.
+- Lovable Cloud is the shared source of truth; each device keeps a Dexie copy (`src/lib/db.ts`) synced by `src/lib/sync.ts`, so scanning still works offline and queues ingresos in an outbox.
+- Cloud tables have no public policies; all access goes through PIN-checked server functions in `src/lib/sync.functions.ts` because the app has no user accounts.
 - The app is a single route `/` with in-page tabs, so the offline service worker only has to cache one page.
 - Service worker registers only via `src/lib/pwa.ts` (guarded: never in dev/preview) using vite-plugin-pwa generateSW.
 - Institutional images use Lovable Assets pointers shared by the interface and ticket renderer, with production service-worker caching so previously loaded branding remains available offline.
