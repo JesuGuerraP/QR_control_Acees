@@ -1,4 +1,4 @@
-// Single guarded service-worker registration. Never registers in dev, iframes or Lovable previews.
+// Single guarded service-worker registration. Never registers in dev, iframes or hosted previews.
 function isRefusedContext(): boolean {
   if (!import.meta.env.PROD) return true;
   if (window.self !== window.top) return true;

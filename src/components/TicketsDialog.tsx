@@ -55,7 +55,7 @@ export function TicketsDialog({ graduando, onClose }: { graduando: Graduando | n
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      /* The WhatsApp fallback works outside the editor's sandboxed preview. */
+      /* Fallback de WhatsApp funciona donde la hoja de compartir no está disponible. */
     }
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   }
