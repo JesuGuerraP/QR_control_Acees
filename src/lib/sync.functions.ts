@@ -14,14 +14,19 @@ async function loadSettings() {
   const sb = await admin();
   const { data, error } = await sb.from("app_settings").select("key, value");
   if (error) throw new Error(error.message);
-  const s: Record<string, string> = { ...DEFAULTS };
-  for (const r of data ?? []) s[r.key] = r.value;
-  return s;
+  const m: Record<string, string> = { ...DEFAULTS };
+  for (const r of data ?? []) m[r.key] = r.value;
+  return {
+    pinAdmin: m["pinAdmin"] ?? "1234",
+    pinPortero: m["pinPortero"] ?? "0000",
+    cuposDefault: m["cuposDefault"] ?? "4",
+    secret: m["secret"] ?? null,
+  };
 }
 
 async function roleFor(pin: string, need: "admin" | "portero" = "portero") {
   const s = await loadSettings();
-  const role = pin === s.pinAdmin ? "admin" : pin === s.pinPortero ? "portero" : null;
+  const role: "admin" | "portero" | null = pin === s.pinAdmin ? "admin" : pin === s.pinPortero ? "portero" : null;
   if (!role || (need === "admin" && role !== "admin")) throw new Error("PIN incorrecto");
   return { role, s };
 }
