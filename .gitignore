@@ -32,3 +32,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Entorno propio local (Vercel usa Settings -> Environment Variables)
+.env
